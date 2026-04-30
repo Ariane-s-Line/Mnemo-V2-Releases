@@ -13,6 +13,11 @@ This repository contains pre-built firmware binaries for the **MNemo V2** cave s
 5. The device will reboot automatically with the new firmware.
 
 
+## Support Policy
+
+Only the two latest firmware releases are supported. Older versions are provided for reference only and will not receive bug fixes or updates.
+
+
 ## Documentation
 
 The user manual is available at [sebkister.github.io/MNemoV2-Documentation](https://sebkister.github.io/MNemoV2-Documentation/).
