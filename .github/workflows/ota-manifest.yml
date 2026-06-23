@@ -1,0 +1,67 @@
+# Regenerates manifest.txt (what the device fetches via OTA_MANIFEST_URL) from the
+# published GitHub release, so cutting a release is the only step -- no hand-edited
+# manifest, and the device stays on the tiny key=value file (no JSON, no
+# api.github.com 60/hour rate limit).
+#
+# Deploy at Ariane-s-Line/Mnemo-V2-Releases/.github/workflows/ota-manifest.yml;
+# this is the versioned reference copy (it does not run from the firmware repo).
+#
+# Convention: attach the slim OTA app image as a `*.bin` asset on the release
+# (the nanorp2040connect-production firmware.bin -- built with -DNO_CJK_FONTS so
+# it stays < 1 MB and fits the SFU staging block). The NINA image is hosted in
+# SebKister/nina-fw -- bump nina_version / nina_url below when it changes.
+#
+# NOTE: nina_* below currently mirrors JedEye (same Nano RP2040 board / NINA
+# module). If MNemo should not track the captive-portal NINA variant, repoint
+# these two lines at the desired SebKister/nina-fw release.
+name: OTA manifest
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  manifest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Build manifest.txt
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="${{ github.event.release.tag_name }}"
+          if [ -n "$TAG" ]; then
+            # Triggered by a published release -> use that release's .bin asset.
+            APP_URL="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG" \
+              --jq '[.assets[] | select(.name|endswith(".bin"))][0].browser_download_url')"
+          else
+            # Manual run -> newest release that actually has a .bin asset.
+            read -r TAG APP_URL <<<"$(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=50" --jq 'map(select(any(.assets[]?; .name|endswith(".bin")))) | first | "\(.tag_name) \([.assets[]|select(.name|endswith(".bin"))][0].browser_download_url)"')"
+          fi
+          if [ -z "$TAG" ] || [ -z "$APP_URL" ] || [ "$APP_URL" = "null" ]; then
+            echo "::error::no release with a .bin asset found (attach the OTA firmware.bin)"
+            exit 1
+          fi
+          APP_VERSION="${TAG#v}"  # device parses bare numeric; strip any leading v
+          cat > manifest.txt <<EOF
+          app_version=${APP_VERSION}
+          app_url=${APP_URL}
+          nina_version=3.0.1-captive
+          nina_url=https://github.com/SebKister/nina-fw/releases/download/3.0.1-captive/NINA-arduino.mbed_nano.nanorp2040connect.bin
+          EOF
+          cat manifest.txt
+      - name: Commit if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add manifest.txt
+          if git diff --staged --quiet; then
+            echo "manifest unchanged"
+          else
+            git commit -m "OTA manifest -> ${{ github.event.release.tag_name || 'latest release' }}"
+            git push
+          fi
