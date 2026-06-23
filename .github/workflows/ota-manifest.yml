@@ -24,6 +24,9 @@ permissions:
 jobs:
   manifest:
     runs-on: ubuntu-latest
+    # Skip auto-runs for pre-releases so a beta never auto-pushes to all devices.
+    # (workflow_dispatch still runs -- a manual regeneration is deliberate.)
+    if: github.event_name != 'release' || github.event.release.prerelease == false
     steps:
       - uses: actions/checkout@v4
         with:
