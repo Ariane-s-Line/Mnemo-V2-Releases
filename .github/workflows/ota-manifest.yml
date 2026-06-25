@@ -28,7 +28,7 @@ jobs:
     # (workflow_dispatch still runs -- a manual regeneration is deliberate.)
     if: github.event_name != 'release' || github.event.release.prerelease == false
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: main
       - name: Build manifest.txt
