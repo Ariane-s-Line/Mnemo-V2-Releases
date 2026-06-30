@@ -1,4 +1,4 @@
-app_version=3.2.2
-app_url=https://github.com/Ariane-s-Line/Mnemo-V2-Releases/releases/download/v3.2.2/firmware-3.2.2.bin
+app_version=3.3.0
+app_url=https://github.com/Ariane-s-Line/Mnemo-V2-Releases/releases/download/v3.3.0/firmware-3.3.0.bin
 nina_version=3.0.1-captive
 nina_url=https://github.com/SebKister/nina-fw/releases/download/3.0.1-captive/NINA-arduino.mbed_nano.nanorp2040connect.bin
