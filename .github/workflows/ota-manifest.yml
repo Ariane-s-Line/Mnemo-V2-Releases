@@ -6,10 +6,12 @@
 # Deploy at Ariane-s-Line/Mnemo-V2-Releases/.github/workflows/ota-manifest.yml;
 # this is the versioned reference copy (it does not run from the firmware repo).
 #
-# Convention: attach the slim OTA app image as a `*.bin` asset on the release
-# (the nanorp2040connect-production firmware.bin -- built with -DNO_CJK_FONTS so
-# it stays < 1 MB and fits the SFU staging block). The NINA image is hosted in
-# SebKister/nina-fw -- bump nina_version / nina_url below when it changes.
+# Convention: attach the OTA app image as a `*.bin` asset on the release (the
+# nanorp2040connect-production firmware.bin -- the full multilingual image incl.
+# CJK fonts. Devices refuse one larger than their otaMaxImageSize(); the firmware
+# repo's production build fails first, see scripts/ota_size_gate.py there).
+# The NINA image is hosted in SebKister/nina-fw -- bump nina_version / nina_url
+# below when it changes.
 #
 # NOTE: nina_* below currently mirrors JedEye (same Nano RP2040 board / NINA
 # module). If MNemo should not track the captive-portal NINA variant, repoint
@@ -17,15 +19,17 @@
 name: OTA manifest
 on:
   release:
-    types: [published]
+    # `released` fires when a full release is published and when a pre-release is
+    # promoted to one. `published` fired for pre-releases too, and missed promotions.
+    types: [released]
   workflow_dispatch:
 permissions:
   contents: write
 jobs:
   manifest:
     runs-on: ubuntu-latest
-    # Skip auto-runs for pre-releases so a beta never auto-pushes to all devices.
-    # (workflow_dispatch still runs -- a manual regeneration is deliberate.)
+    # A beta must never auto-push to all devices. `released` never carries a
+    # pre-release; the guard stays in case the trigger list grows.
     if: github.event_name != 'release' || github.event.release.prerelease == false
     steps:
       - uses: actions/checkout@v5
@@ -42,8 +46,9 @@ jobs:
             APP_URL="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG" \
               --jq '[.assets[] | select(.name|endswith(".bin"))][0].browser_download_url')"
           else
-            # Manual run -> newest release that actually has a .bin asset.
-            read -r TAG APP_URL <<<"$(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=50" --jq 'map(select(any(.assets[]?; .name|endswith(".bin")))) | first | "\(.tag_name) \([.assets[]|select(.name|endswith(".bin"))][0].browser_download_url)"')"
+            # Manual run -> newest full release (no draft, no pre-release) with a .bin
+            # asset, so running it while a beta or a draft is up cannot ship that.
+            read -r TAG APP_URL <<<"$(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=50" --jq 'map(select(.draft == false and .prerelease == false and any(.assets[]?; .name|endswith(".bin")))) | first | "\(.tag_name) \([.assets[]|select(.name|endswith(".bin"))][0].browser_download_url)"')"
           fi
           if [ -z "$TAG" ] || [ -z "$APP_URL" ] || [ "$APP_URL" = "null" ]; then
             echo "::error::no release with a .bin asset found (attach the OTA firmware.bin)"
